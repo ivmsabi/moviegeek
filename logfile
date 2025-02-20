@@ -1,0 +1,2 @@
+2025-02-20 13:19:33.963 MSK [22382] FATAL:  database files are incompatible with server
+2025-02-20 13:19:33.963 MSK [22382] DETAIL:  The data directory was initialized by PostgreSQL version 15, which is not compatible with this version 14.16 (Homebrew).
