@@ -1,0 +1,13 @@
+Django
+django-extensions
+gensim
+tqdm
+pandas
+requests
+scikit-learn
+jupyter
+seaborn
+matplotlib
+pyLDAvis
+nltk
+stop_words
