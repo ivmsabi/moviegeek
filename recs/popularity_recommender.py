@@ -45,4 +45,3 @@ class PopularityBasedRecs(base_recommender):
             return 0
 
         return Decimal(item['rating__avg'])
-

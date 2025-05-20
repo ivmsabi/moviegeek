@@ -144,4 +144,3 @@ if __name__ == '__main__':
         cov = RecommenderCoverage(FunkSVDRecs())
 
         cov.calculate_coverage(K=k, recName='funk{}'.format(k))
-

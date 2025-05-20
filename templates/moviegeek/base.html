@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+
 <html lang="en">
   <head>
     {% load static %}
@@ -57,7 +57,7 @@
                     {% if genres %}
                     {% for genre in genres %}
                         <li> <a href="/movies/genre/{{genre.name}}"
-                                onclick="add_impression({{ user_id }} , 'genre:{{genre.name}}', 0,
+                                onclick="add_impression('{{ user_id }}' , 'genre:{{genre.name}}', 0,
                                         '{{ session_id }}',
                                         '{{ csrf_token }}', '')">{{ genre.name }}</a> </li>
                     {% endfor %}

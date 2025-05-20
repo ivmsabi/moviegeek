@@ -1,4 +1,11 @@
 import os
+import json
+import time
+import argparse
+import logging
+from decimal import Decimal
+from collections import defaultdict
+import pandas as pd
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "prs_project.settings")
 
@@ -6,136 +13,134 @@ import django
 
 django.setup()
 
-import logging
-from decimal import Decimal
-from tqdm import tqdm
-
-
-
+from recs.funksvd_recommender import FunkSVDRecs
 from analytics.models import Rating
+from recs.bpr_recommender import BPRRecs
+from recs.content_based_recommender import ContentBasedRecs
+from recs.fwls_recommender import FeatureWeightedLinearStacking
+from recs.neighborhood_based_recommender import NeighborhoodBasedRecs
 
 
-class MeanAverageError(object):
+class RecommenderCoverage(object):
+
     def __init__(self, recommender):
-        self.rec = recommender
-        logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s',
-                            level=logging.DEBUG)
-        self.l = logging.getLogger('Evaluation runner')
+        self.ratings = self.load_all_ratings()
+        self.all_users = set(self.ratings['user_id'])
+        self.all_movies = set(self.ratings['movie_id'])
+        self.recommender = recommender
+        self.items_in_rec = defaultdict(int)
+        self.user_recs = []
+        self.users_with_recs = dict()
 
-    def calculate(self, train_ratings, test_ratings):
+    def calculate_coverage(self, K=6, recName=''):
 
-        user_ids = test_ratings['user_id'].unique()
-        self.l.info('evaluating based on {} users (MAE)'.format(len(user_ids)))
-        error = Decimal(0.0)
+        logger.debug('calculating coverage for all users ({} in total)'.format(len(self.all_users)))
 
-        if len(user_ids) == 0:
-            return Decimal(0.0)
+        for user in list(self.all_users):
+            user_id = user
+            recset = self.recommender.recommend_items(int(user_id), num=K)
+            self.users_with_recs[user] = recset
+            inx = 1
+            if recset:
 
-        for user_id in user_ids:
-            user_error = Decimal(0.0)
+                for rec in recset:
+                    self.items_in_rec[rec[0]] += 1
+                    self.add_user_recs(inx, rec, user)
+                    inx += 1
 
-            ratings_for_rec = train_ratings[train_ratings.user_id == user_id]
-            movies = {m['movie_id']: Decimal(m['rating']) for m in
-                      ratings_for_rec[['movie_id', 'rating']].to_dict(orient='records')}
+        self.save_user_recs(recName)
 
-            this_test_ratings = test_ratings[test_ratings['user_id'] == user_id]
+        no_movies = len(self.all_movies)
+        no_movies_in_rec = len(self.items_in_rec)
+        no_users = len(self.all_users)
+        no_users_in_rec = len(self.users_with_recs)
+        user_coverage = float(no_users_in_rec / no_users)
+        movie_coverage = float(no_movies_in_rec / no_movies)
+        logger.info("{} {} {}".format(no_users, no_users_in_rec, user_coverage))
+        logger.info("{} {} {}".format(no_movies, no_movies_in_rec, movie_coverage))
+        return user_coverage, movie_coverage
 
-            num_movies = 0
-            if len(this_test_ratings) > 0:
+    def save_user_recs(self, recName):
+        timestr = time.strftime("%Y%m%d-%H%M%S")
+        logger.debug('writing cf coverage to file.')
+        json.dump(self.items_in_rec, open('{}-{}_item_coverage.json'.format(timestr, recName), 'w'))
+        json.dump(self.user_recs,
+                  open('{}-{}_user_coverage.json'.format(timestr, recName), 'w')
+                  , cls=DecimalEncoder)
 
-                movie_ids = this_test_ratings['movie_id'].unique()
-                for item_id in tqdm(movie_ids):
-                    actual_rating = this_test_ratings[this_test_ratings['movie_id'] == item_id].iloc[0]['rating']
-                    predicted_rating = self.rec.predict_score_by_ratings(item_id, movies)
-
-                    if actual_rating > 0 and predicted_rating > 0:
-                        num_movies += 1
-                        item_error = abs(actual_rating - predicted_rating)
-                        user_error += item_error
-
-                if num_movies > 0:
-                    error += user_error / num_movies
-
-                    print(
-                        "AE userid:{}, test_ratings:{} predicted {} error {}".format(user_id,
-                                                                                     len(this_test_ratings),
-                                                                                     num_movies,
-                                                                                     user_error / num_movies))
-
-        return error / len(user_ids)
-
-
-class PrecisionAtK(object):
-    def __init__(self, k, recommender):
-
-        self.all_users = Rating.objects.all().values('user_id').distinct()
-        self.K = k
-        self.rec = recommender
-
-    def calculate_mean_average_precision(self, train_ratings, test_ratings):
-
-        total_precision_score = Decimal(0.0)
-        total_recall_score = Decimal(0.0)
-
-        apks = []
-        arks = []
-        user_id_count = 0
-        no_rec = 0
-        for user_id, users_test_data in test_ratings.groupby('user_id'):
-            user_id_count += 1
-            training_data_for_user = train_ratings[train_ratings['user_id'] == user_id][:20]
-
-            dict_for_rec = training_data_for_user.to_dict(orient='records')
-
-            relevant_ratings = list(users_test_data['movie_id'])
-
-            if len(dict_for_rec) > 0:
-                recs = list(self.rec.recommend_items_by_ratings(user_id,
-                                                                dict_for_rec,
-                                                                num=self.K))
-                if len(recs) > 0:
-                    AP = self.average_precision_k(recs, relevant_ratings)
-                    AR = self.recall_at_k(recs, relevant_ratings)
-                    arks.append(AR)
-                    apks.append(AP)
-                    total_precision_score += AP
-                    total_recall_score += AR
-                else:
-                    no_rec += 1
-
-        average_recall = total_recall_score/len(arks) if len(arks) > 0 else 0
-        mean_average_precision = total_precision_score/len(apks) if len(apks) > 0 else 0
-        output_str = "#userid {}, MAP {}, average recall {}, len-ap {}, len-ar {}, no_recs {}"
-        print(output_str.format(user_id_count,
-                                mean_average_precision,
-                                average_recall,
-                                len(apks),
-                                len(arks),
-                                no_rec))
-        return mean_average_precision, average_recall
+    def add_user_recs(self, inx, rec, user):
+        self.user_recs.append({"userid": user,
+                               "itemid": rec[0],
+                               "prediction": float(rec[1]['prediction']),
+                               "inx": inx})
 
     @staticmethod
-    def recall_at_k(recs, actual):
+    def load_all_ratings(min_ratings=1):
+        columns = ['user_id', 'movie_id', 'rating', 'type', 'rating_timestamp']
 
-        if len(actual) == 0:
-            return Decimal(0.0)
+        ratings_data = Rating.objects.all().values(*columns)
 
-        TP = set([r[0] for r in recs if r[0] in actual])
+        ratings = pd.DataFrame.from_records(ratings_data, columns=columns)
 
-        return Decimal(len(TP) / len(actual))
+        user_count = ratings[['user_id', 'movie_id']].groupby('user_id').count()
+        user_count = user_count.reset_index()
+        user_ids = user_count[user_count['movie_id'] > min_ratings]['user_id']
 
-    @staticmethod
-    def average_precision_k(recs, actual):
-        score = Decimal(0.0)
-        num_hits = 0
+        ratings = ratings[ratings['user_id'].isin(user_ids)]
 
-        for i, p in enumerate(recs):
-            TP = p[0] in actual
-            if TP:
-                num_hits += 1.0
-            score += Decimal(num_hits / (i + 1.0))
-        if score > 0:
-            score /= min(len(recs), len(actual))
-        return score
+        ratings['rating'] = ratings['rating'].astype(float)
+        logger.debug("using {} ratings".format(ratings.shape[0]))
+        return ratings
 
 
+class DecimalEncoder(json.JSONEncoder):
+    def _iterencode(self, o, markers=None):
+        if isinstance(o, Decimal):
+            # wanted a simple yield str(o) in the next line,
+            # but that would mean a yield on the line with super(...),
+            # which wouldn't work (see my comment below), so...
+            return (str(o) for o in [o])
+        return super(DecimalEncoder, self)._iterencode(o, markers)
+
+if __name__ == '__main__':
+
+    logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.DEBUG)
+    logger = logging.getLogger('Evaluation runner')
+
+    parser = argparse.ArgumentParser(description='Evaluate coverage of the recommender algorithms.')
+    parser.add_argument('-fwls', help="run evaluation on fwls rec", action="store_true")
+    parser.add_argument('-funk', help="run evaluation on funk rec", action="store_true")
+    parser.add_argument('-cf', help="run evaluation on cf rec", action="store_true")
+    parser.add_argument('-cb', help="run evaluation on cb rec", action="store_true")
+    parser.add_argument('-ltr', help="run evaluation on rank rec", action="store_true")
+
+    args = parser.parse_args()
+
+    print(args.fwls)
+    k = 10
+    cov = None
+    if args.fwls:
+        logger.debug("evaluating coverage of fwls")
+        cov = RecommenderCoverage(FeatureWeightedLinearStacking)
+        cov.calculate_coverage(K=k, recName='fwls{}'.format(k))
+
+    if args.cf:
+        logger.debug("evaluating coverage of cf")
+        cov = RecommenderCoverage(NeighborhoodBasedRecs())
+        cov.calculate_coverage(K=k, recName='cf{}'.format(k))
+
+    if args.cb:
+        logger.debug("evaluating coverage of cb")
+        cov = RecommenderCoverage(ContentBasedRecs())
+        cov.calculate_coverage(K=k, recName='cb{}'.format(k))
+
+    if args.ltr:
+        logger.debug("evaluating coverage of ltr")
+        cov = RecommenderCoverage(BPRRecs())
+        cov.calculate_coverage(K=k, recName='bpr{}'.format(k))
+
+    if args.funk:
+        logger.debug("evaluating coverage of funk")
+        cov = RecommenderCoverage(FunkSVDRecs())
+
+        cov.calculate_coverage(K=k, recName='funk{}'.format(k))

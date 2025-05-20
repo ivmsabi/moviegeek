@@ -4,5 +4,3 @@ from collector import views
 urlpatterns = [
     path('log/', views.log, name='log'),
 ]
-
-

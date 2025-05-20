@@ -277,9 +277,3 @@ Start the web server again by running the following command:
 ```bash
 > python manage.py runserver 127.0.0.1:8000
 ```
-
-## Assignments
-
-Publish your repository at github (no fork!) and send me link to ailabintsev@fa.ru  
-
-Lectures available [here](https://disk.yandex.ru/d/ed-1fl1gw5_pOA)  

@@ -87,7 +87,7 @@
         }
                 
         function item_bought(){
-            add_impression({{user_id}}, 'buy', '{{ movie_id }}', '{{ session_id }}','{{ csrf_token }}');
+            add_impression('{{user_id}}', 'buy', '{{ movie_id }}', '{{ session_id }}','{{ csrf_token }}');
             console.log('item bought', '{{ movie_id }}');
         }
 

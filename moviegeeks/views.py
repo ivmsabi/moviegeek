@@ -162,4 +162,3 @@ def user_id(request):
 
     print("ensured id: ", request.session['user_id'] )
     return request.session['user_id']
-

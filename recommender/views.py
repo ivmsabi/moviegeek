@@ -36,7 +36,10 @@ def recs_using_association_rules(request, user_id, take=6):
     print(f"Events for user {user_id}: {list(events)}")
 
     # Take the first 20 unique content_ids as seeds
-    seeds = set(events[:20])
+    # Перебирает все event в events.
+    # Добавляет в seeds только те, которые не равны '0', делая рекомендации точнее.
+    # Убираем заведомо неинформативные события (вроде '0'), которые часто обозначают "ничего не куплено"
+    seeds = set(event for event in events if event != '0')
     print(f"Seeds: {seeds}")
 
     # Fetch association rules for the seeds, excluding the seeds themselves
@@ -47,6 +50,7 @@ def recs_using_association_rules(request, user_id, take=6):
         .order_by('-confidence')
     
     print(f"Rules: {list(rules)}")
+    print(SeededRecs.objects.__str__())
 
     # Prepare the recommendations
     recs = [{'id': '{0:07d}'.format(int(rule['target'])),
@@ -189,7 +193,7 @@ def recs_fwls(request, user_id, num=6):
     return JsonResponse(data, safe=False)
 
 def recs_funksvd(request, user_id, num=6):
-    sorted_items = FunkSVDRecs().recommend_items(user_id, num)
+    sorted_items = FunkSVDRecs().recommend_items(user_id, num=6)
 
     data = {
         'user_id': user_id,
@@ -198,7 +202,7 @@ def recs_funksvd(request, user_id, num=6):
     return JsonResponse(data, safe=False)
 
 def recs_bpr(request, user_id, num=6):
-    sorted_items = BPRRecs().recommend_items(user_id, num)
+    sorted_items = BPRRecs().recommend_items(user_id, num=6)
 
     data = {
         'user_id': user_id,

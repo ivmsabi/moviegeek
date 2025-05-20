@@ -1,3 +1,4 @@
+
 import os
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
@@ -68,22 +69,25 @@ WSGI_APPLICATION = 'prs_project.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/1.9/ref/settings/#databases
 
+#   'default': {
+#       'ENGINE': 'django.db.backends.sqlite3',
+#       'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+#   }
+#}
 DATABASES = {
-   'default': {
-       'ENGINE': 'django.db.backends.sqlite3',
-       'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-   }
+    # 'default': {
+    #     'ENGINE': 'django.db.backends.postgresql',
+    #     'NAME': 'moviegeek',
+    #     'USER': 'postgres',
+    #     'PASSWORD': 'sql2023',
+    #     'HOST': 'localhost',
+    #     'PORT': 5432
+    #     }
+      'default': {
+      'ENGINE': 'django.db.backends.sqlite3',
+      'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+  }
 }
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'moviegeek',
-#         'USER': 'postgres',
-#         'PASSWORD': 'hullo1!',
-#         'HOST': 'localhost',
-#         'PORT': 5432
-#     }
-# }
 
 # Password validation
 # https://docs.djangoproject.com/en/1.9/ref/settings/#auth-password-validators
@@ -124,3 +128,5 @@ USE_TZ = False
 STATIC_URL = '/static/'
 
 STATICFILES_DIRS = [STATIC_DIR, ]
+
+DEFAULT_AUTO_FIELD='django.db.models.AutoField'
