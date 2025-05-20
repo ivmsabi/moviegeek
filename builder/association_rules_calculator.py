@@ -112,6 +112,7 @@ def has_support(perm, one_itemsets):
 def save_rules(rules):
 
     for rule in rules:
+        print(f"Saving rule: {rule}")
         SeededRecs(
             created=rule[0],
             source=str(rule[1]),
@@ -125,5 +126,3 @@ if __name__ == '__main__':
     print("Calculating association rules...")
 
     build_association_rules()
-
-
