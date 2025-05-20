@@ -192,7 +192,7 @@ def main():
     logger.info("Calculation of item similarity")
 
     all_ratings = load_all_ratings()
-    ItemSimilarityMatrixBuilder(min_overlap=20, min_sim=0.0).build(all_ratings)
+    ItemSimilarityMatrixBuilder(min_overlap=5, min_sim=0.1).build(all_ratings)
 
 def normalize(x):
     x = x.astype(float)

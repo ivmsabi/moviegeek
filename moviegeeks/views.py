@@ -159,6 +159,6 @@ def user_id(request):
     if not "user_id" in request.session:
         # request.session['user_id'] = random.randint(10000000000, 90000000000)
         request.session['user_id'] = 50595
-
+        request.session['user_id'] = random.randint(1, 71705)
     print("ensured id: ", request.session['user_id'] )
     return request.session['user_id']

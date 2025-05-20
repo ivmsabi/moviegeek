@@ -194,7 +194,6 @@ def recs_fwls(request, user_id, num=6):
 
 def recs_funksvd(request, user_id, num=6):
     sorted_items = FunkSVDRecs().recommend_items(user_id, num=6)
-
     data = {
         'user_id': user_id,
         'data': sorted_items
