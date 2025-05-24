@@ -63,8 +63,8 @@ class MatrixFactorization(object):
         ensure_dir(save_path)
 
     def initialize_factors(self, ratings, k=25):
-        self.user_ids = set(ratings['user_id'].values)
-        self.movie_ids = set(ratings['movie_id'].values)
+        self.user_ids = list(ratings['user_id'].unique())
+        self.movie_ids = list(ratings['movie_id'].unique())
         self.item_counts = ratings[['movie_id', 'rating']].groupby('movie_id').count()
         self.item_counts = self.item_counts.reset_index()
 
@@ -104,7 +104,7 @@ class MatrixFactorization(object):
 
     def split_data(self, min_rank, ratings):
 
-        users = self.user_ids
+        users = set(self.user_ids)
 
         train_data_len = int((len(users) * 70 / 100))
         test_users = set(random.sample(users, (len(users) - train_data_len)))
@@ -186,7 +186,7 @@ class MatrixFactorization(object):
         self.initialize_factors(ratings_df, k)
         self.logger.info("training matrix factorization at {}".format(datetime.now()))
 
-        ratings = ratings_df[['user_id', 'movie_id', 'rating']].as_matrix()
+        ratings = ratings_df[['user_id', 'movie_id', 'rating']].to_numpy()
 
         index_randomized = random.sample(range(0, len(ratings)), (len(ratings) - 1))
 
@@ -271,9 +271,9 @@ class MatrixFactorization(object):
         item_bias = {iid: self.item_bias[self.i_inx[iid]] for iid in self.i_inx.keys()}
 
         uf = pd.DataFrame(self.user_factors,
-                          index=self.user_ids)
+                          index=list(self.user_ids))
         it_f = pd.DataFrame(self.item_factors,
-                            index=self.movie_ids)
+                            index=list(self.movie_ids))
 
         with open(save_path + 'user_factors.json', 'w') as outfile:
             outfile.write(uf.to_json())
@@ -304,7 +304,7 @@ def load_all_ratings(min_ratings=1):
     user_ids = user_count[user_count['movie_id'] > min_ratings]['user_id']
     ratings = ratings[ratings['user_id'].isin(user_ids)]
 
-    ratings['rating'] = ratings['rating'].astype(Decimal)
+    ratings['rating'] = ratings['rating'].apply(float)
     return ratings
 
 
@@ -318,7 +318,8 @@ if __name__ == '__main__':
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
     logger = logging.getLogger('funkSVD')
     logger.info("[BEGIN] Calculating matrix factorization")
-
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    print(timestamp)
     MF = MatrixFactorization(save_path='./models/funkSVD/{}/'.format(datetime.now()), max_iterations=40)
     loaded_ratings = load_all_ratings(20)
     logger.info("using {} ratings".format(loaded_ratings.shape[0]))
